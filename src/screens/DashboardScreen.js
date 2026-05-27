@@ -108,18 +108,6 @@ export default function DashboardScreen({ navigation }) {
         {/* Header */}
         <View style={styles.headerRow}>
           <Text style={styles.title}>Dashboard</Text>
-          {dataSource === 'cloud' && (
-            <View style={styles.syncBadge}>
-              <Ionicons name="cloud-done" size={14} color="#4caf50" />
-              <Text style={[styles.syncBadgeText, { color: '#4caf50' }]}>Cloud</Text>
-            </View>
-          )}
-          {dataSource === 'merged' && (
-            <View style={styles.syncBadge}>
-              <Ionicons name="sync" size={14} color="#2196f3" />
-              <Text style={[styles.syncBadgeText, { color: '#2196f3' }]}>Synced</Text>
-            </View>
-          )}
         </View>
 
         {/* Metric boxes */}

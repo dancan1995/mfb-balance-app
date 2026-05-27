@@ -192,9 +192,6 @@ export default function HistoryScreen({ navigation }) {
           <View style={styles.cardHeader}>
             <View style={styles.cardHeaderLeft}>
               <Text style={styles.participantId}>ID: {item.participantId}</Text>
-              {dataSource === 'cloud' && (
-                <Ionicons name="cloud" size={16} color="#4caf50" />
-              )}
             </View>
             <Text style={styles.dateTime}>
               {new Date(item.completedAt || item.dateTime).toLocaleString()}
@@ -279,18 +276,6 @@ export default function HistoryScreen({ navigation }) {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.title}>Assessment History</Text>
-          {dataSource === 'cloud' && (
-            <View style={styles.cloudBadge}>
-              <Ionicons name="cloud-done" size={14} color="#4caf50" />
-              <Text style={styles.cloudBadgeText}>Cloud</Text>
-            </View>
-          )}
-          {dataSource === 'merged' && (
-            <View style={[styles.cloudBadge, { backgroundColor: '#e3f2fd' }]}>
-              <Ionicons name="sync" size={14} color="#2196f3" />
-              <Text style={[styles.cloudBadgeText, { color: '#2196f3' }]}>Synced</Text>
-            </View>
-          )}
         </View>
         
         <Searchbar

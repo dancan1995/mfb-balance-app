@@ -188,12 +188,6 @@ export default function HomeScreen({ navigation }) {
             </View>
           )}
 
-          {cloudSynced && (
-            <View style={styles.syncPill}>
-              <Ionicons name="cloud-done" size={11} color="rgba(255,255,255,0.85)" />
-              <Text style={styles.syncPillText}>Cloud synced</Text>
-            </View>
-          )}
         </LinearGradient>
 
         {/* ── Quick actions ────────────────────────────────────── */}

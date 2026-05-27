@@ -209,18 +209,6 @@ export default function SettingsScreen({ navigation }) {
         <Card.Content>
           <View style={styles.titleRow}>
             <Text style={styles.title}>Settings</Text>
-            {syncStatus === 'synced' && (
-              <View style={styles.syncBadge}>
-                <Icon name="cloud-check" size={16} color="#4caf50" />
-                <Text style={styles.syncBadgeText}>Auto-Sync Active</Text>
-              </View>
-            )}
-            {syncStatus === 'local-only' && (
-              <View style={[styles.syncBadge, { backgroundColor: '#fff8e1' }]}>
-                <Icon name="cloud-sync" size={16} color="#ff9800" />
-                <Text style={[styles.syncBadgeText, { color: '#f57c00' }]}>Syncing...</Text>
-              </View>
-            )}
           </View>
 
           {/* User Profile Card */}
@@ -240,14 +228,6 @@ export default function SettingsScreen({ navigation }) {
           )}
 
           <Divider style={styles.divider} />
-
-          {/* Firebase Auto-Sync Info */}
-          <View style={styles.syncInfoBox}>
-            <Icon name="cloud-sync-outline" size={20} color="#4caf50" />
-            <Text style={styles.syncInfoText}>
-              All your assessments are automatically backed up to the cloud in real-time.
-            </Text>
-          </View>
 
           <Divider style={styles.divider} />
 
@@ -514,10 +494,6 @@ export default function SettingsScreen({ navigation }) {
               <Text style={styles.aboutSubtext}>
                 Grand Rapids, Michigan
               </Text>
-              <View style={styles.cloudFeatureBadge}>
-                <Icon name="cloud-check" size={14} color="#4caf50" />
-                <Text style={styles.cloudFeatureText}>Real-Time Cloud Sync</Text>
-              </View>
             </View>
           </View>
 

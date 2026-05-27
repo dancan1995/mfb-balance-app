@@ -632,12 +632,6 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
               <Text style={styles.completedText}>
                 {completedCount} items completed in this test
               </Text>
-              {lastSavedProgress && (
-                <View style={styles.cloudSyncBadge}>
-                  <Ionicons name="cloud-done" size={12} color="#4caf50" />
-                  <Text style={styles.cloudSyncText}>Synced</Text>
-                </View>
-              )}
             </View>
             
             {/* Stopping Criteria Indicator */}

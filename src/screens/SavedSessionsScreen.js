@@ -210,24 +210,6 @@ export default function SavedSessionsScreen({ navigation }) {
       <View style={styles.header}>
         <View style={styles.headerTop}>
           <Text style={styles.title}>Saved Sessions</Text>
-          {dataSource === 'cloud' && (
-            <View style={styles.cloudBadge}>
-              <Ionicons name="cloud-done" size={14} color="#4caf50" />
-              <Text style={styles.cloudBadgeText}>Cloud</Text>
-            </View>
-          )}
-          {dataSource === 'merged' && (
-            <View style={[styles.cloudBadge, { backgroundColor: '#e3f2fd' }]}>
-              <Ionicons name="sync" size={14} color="#2196f3" />
-              <Text style={[styles.cloudBadgeText, { color: '#2196f3' }]}>Synced</Text>
-            </View>
-          )}
-          {dataSource === 'local' && sessionEntries.length > 0 && (
-            <View style={[styles.cloudBadge, { backgroundColor: '#fff3e0' }]}>
-              <Ionicons name="phone-portrait" size={14} color="#ff9800" />
-              <Text style={[styles.cloudBadgeText, { color: '#ff9800' }]}>Local</Text>
-            </View>
-          )}
         </View>
         <Text style={styles.subtitle}>
           {sessionEntries.length} saved session{sessionEntries.length !== 1 ? 's' : ''}
@@ -253,9 +235,6 @@ export default function SavedSessionsScreen({ navigation }) {
                     <Text style={styles.participantId}>
                       Participant ID: {session.participantId}
                     </Text>
-                    {(session.firestoreId || dataSource === 'cloud') && (
-                      <Ionicons name="cloud" size={16} color="#4caf50" />
-                    )}
                   </View>
                   <Text style={styles.saveTime}>
                     {new Date(session.saveTime).toLocaleString()}
