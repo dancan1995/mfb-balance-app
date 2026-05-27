@@ -1,15 +1,68 @@
 import { useEffect, useState } from 'react';
-import { Alert, ScrollView, StyleSheet, Text, View, ActivityIndicator, RefreshControl } from 'react-native';
+import { Alert, ScrollView, StyleSheet, Text, View, ActivityIndicator, RefreshControl, Modal, TouchableOpacity, Platform } from 'react-native';
 import { Button, Card } from 'react-native-paper';
 import { Ionicons } from '@expo/vector-icons';
 import { StorageService } from '../services/storage';
 import { getSavedSessions, deleteSavedSession } from '../services/firestore';
+
+function ConfirmModal({ visible, title, message, confirmText, confirmColor, onConfirm, onCancel }) {
+  if (!visible) return null;
+  return (
+    <Modal visible={visible} transparent animationType="fade">
+      <View style={cmStyles.overlay}>
+        <View style={cmStyles.card}>
+          <Text style={cmStyles.title}>{title}</Text>
+          <Text style={cmStyles.message}>{message}</Text>
+          <View style={cmStyles.btns}>
+            {onCancel && (
+              <TouchableOpacity style={cmStyles.cancelBtn} onPress={onCancel}>
+                <Text style={cmStyles.cancelText}>Cancel</Text>
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[cmStyles.actionBtn, { backgroundColor: confirmColor || '#dc3545' }]}
+              onPress={onConfirm}
+            >
+              <Text style={cmStyles.actionText}>{confirmText}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+}
+
+const cmStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  card: {
+    backgroundColor: 'white', borderRadius: 16, padding: 24, maxWidth: 380, width: '100%', gap: 14,
+    ...Platform.select({ web: { boxShadow: '0 8px 32px rgba(0,0,0,0.2)' }, ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 16 }, android: { elevation: 12 } }),
+  },
+  title: { fontSize: 19, fontWeight: 'bold', color: '#1a1a2e' },
+  message: { fontSize: 14, color: '#555', lineHeight: 21 },
+  btns: { flexDirection: 'row', gap: 12, marginTop: 4 },
+  cancelBtn: { flex: 1, paddingVertical: 13, borderRadius: 10, borderWidth: 1.5, borderColor: '#ddd', alignItems: 'center' },
+  cancelText: { fontSize: 15, color: '#555', fontWeight: '600' },
+  actionBtn: { flex: 1, paddingVertical: 13, borderRadius: 10, alignItems: 'center' },
+  actionText: { fontSize: 15, color: '#fff', fontWeight: 'bold' },
+});
 
 export default function SavedSessionsScreen({ navigation }) {
   const [sessions, setSessions] = useState({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [dataSource, setDataSource] = useState('local');
+  const [confirmModal, setConfirmModal] = useState({
+    visible: false, title: '', message: '', confirmText: 'OK', confirmColor: '#dc3545', onConfirm: null, onCancel: null,
+  });
+  const showConfirm = (title, message, confirmText, confirmColor, onConfirm) => {
+    setConfirmModal({
+      visible: true, title, message, confirmText, confirmColor,
+      onConfirm,
+      onCancel: () => setConfirmModal(p => ({ ...p, visible: false })),
+    });
+  };
+  const hideConfirm = () => setConfirmModal(p => ({ ...p, visible: false }));
 
   useEffect(() => {
     loadSessions();
@@ -73,84 +126,59 @@ export default function SavedSessionsScreen({ navigation }) {
     await loadSessions();
   };
 
-  const handleResume = async (sessionId, session) => {
-    console.log('Resuming session:', sessionId);
-    console.log('Session data:', session);
-    
-    Alert.alert(
+  const handleResume = (sessionId, session) => {
+    showConfirm(
       'Resume Session',
       `Resume assessment for Participant ${session.participantId}?\n\nYou will continue from item ${(session.currentItemIndex || 0) + 1}`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Resume',
-          onPress: async () => {
-            try {
-              // Verify session still exists in local storage
-              const currentSessions = await StorageService.getSavedSessions();
-              
-              if (!currentSessions || !currentSessions[sessionId]) {
-                Alert.alert('Error', 'Session not found. It may have been deleted.');
-                await loadSessions();
-                return;
-              }
-              
-              // Navigate to Assessment screen with complete session data
-              navigation.navigate('Assessment', { 
-                resumeSession: {
-                  ...session,
-                  sessionId: sessionId,
-                  timestamp: Date.now() // Add timestamp for tracking
-                }
-              });
-            } catch (error) {
-              console.error('Error resuming session:', error);
-              Alert.alert('Error', 'Failed to resume session. Please try again.');
-            }
+      'Resume',
+      '#3c8dbc',
+      async () => {
+        hideConfirm();
+        try {
+          const currentSessions = await StorageService.getSavedSessions();
+          if (!currentSessions || !currentSessions[sessionId]) {
+            showConfirm('Not Found', 'Session not found. It may have been deleted.', 'OK', '#2c5aa0', hideConfirm);
+            await loadSessions();
+            return;
           }
+          navigation.navigate('Assessment', {
+            resumeSession: { ...session, sessionId, timestamp: Date.now() }
+          });
+        } catch (error) {
+          console.error('Error resuming session:', error);
+          showConfirm('Error', 'Failed to resume session. Please try again.', 'OK', '#2c5aa0', hideConfirm);
         }
-      ]
+      }
     );
   };
 
-  const handleDelete = async (sessionId, session) => {
-    Alert.alert(
+  const handleDelete = (sessionId, session) => {
+    showConfirm(
       'Delete Session',
       'Are you sure you want to delete this saved session? This action cannot be undone.',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              // Delete from local storage first (priority)
-              const localResult = await StorageService.deleteSavedSession(sessionId);
-              
-              // Try to delete from Firestore (background operation)
-              if (session.firestoreId || session.id) {
-                deleteSavedSession(session.firestoreId || session.id).catch(err => {
-                  console.log('Cloud deletion failed (non-critical):', err.message);
-                });
-              }
-              
-              if (localResult.success) {
-                // Update local state immediately
-                const updatedSessions = { ...sessions };
-                delete updatedSessions[sessionId];
-                setSessions(updatedSessions);
-                
-                Alert.alert('Success', 'Session deleted successfully');
-              } else {
-                Alert.alert('Error', 'Failed to delete session from device');
-              }
-            } catch (error) {
-              console.error('Error deleting session:', error);
-              Alert.alert('Error', 'Failed to delete session. Please try again.');
-            }
+      'Delete',
+      '#dc3545',
+      async () => {
+        hideConfirm();
+        try {
+          const localResult = await StorageService.deleteSavedSession(sessionId);
+          if (session.firestoreId || session.id) {
+            deleteSavedSession(session.firestoreId || session.id).catch(err => {
+              console.log('Cloud deletion failed (non-critical):', err.message);
+            });
           }
+          if (localResult.success) {
+            const updatedSessions = { ...sessions };
+            delete updatedSessions[sessionId];
+            setSessions(updatedSessions);
+          } else {
+            showConfirm('Error', 'Failed to delete session from device.', 'OK', '#2c5aa0', hideConfirm);
+          }
+        } catch (error) {
+          console.error('Error deleting session:', error);
+          showConfirm('Error', 'Failed to delete session. Please try again.', 'OK', '#2c5aa0', hideConfirm);
         }
-      ]
+      }
     );
   };
 
@@ -308,6 +336,15 @@ export default function SavedSessionsScreen({ navigation }) {
           ))
       )}
       </View>
+      <ConfirmModal
+        visible={confirmModal.visible}
+        title={confirmModal.title}
+        message={confirmModal.message}
+        confirmText={confirmModal.confirmText}
+        confirmColor={confirmModal.confirmColor}
+        onConfirm={confirmModal.onConfirm}
+        onCancel={confirmModal.onCancel}
+      />
     </ScrollView>
   );
 }
