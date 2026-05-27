@@ -219,7 +219,7 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-    ...Platform.select({ web: { height: '100vh' } }),
+    ...Platform.select({ web: { height: '100vh', overflow: 'hidden' } }),
   },
   header: {
     backgroundColor: '#ff9500',
@@ -236,7 +236,7 @@ const styles = StyleSheet.create({
 
   scroll: {
     flex: 1,
-    ...Platform.select({ web: { overflowY: 'auto' } }),
+    ...Platform.select({ web: { overflow: 'scroll' } }),
   },
   content: {
     padding: 20,
