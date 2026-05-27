@@ -205,12 +205,17 @@ export default function LoginScreen({ navigation }) {
 
   if (isWide) {
     return (
-      <View style={styles.wideRoot}>
+      <ScrollView
+        style={styles.wideRoot}
+        contentContainerStyle={styles.wideScroll}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View style={styles.wideCard}>
           {brandPanel}
           {formPanel}
         </View>
-      </View>
+      </ScrollView>
     );
   }
 
@@ -236,9 +241,13 @@ const styles = StyleSheet.create({
   wideRoot: {
     flex: 1,
     backgroundColor: '#dde3eb',
+  },
+  wideScroll: {
+    flexGrow: 1,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 40,
+    minHeight: '100%',
   },
   wideCard: {
     flexDirection: 'row',

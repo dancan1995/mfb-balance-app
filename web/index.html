@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no, viewport-fit=cover"
+    />
+    <meta name="theme-color" content="#ff9500" />
+    <meta name="description" content="MFB Balance App - Professional Balance Assessment Tool" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="MFB Balance" />
+    <title>MFB Balance App</title>
+    <style>
+      /* Reset */
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+
+      html {
+        height: 100%;
+        /* Allow browser-level scroll on mobile when needed */
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      body {
+        margin: 0;
+        padding: 0;
+        height: 100%;
+        background-color: #f0f4f8;
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        /* Re-enable touch events that React Native Web disables */
+        touch-action: manipulation;
+        -webkit-tap-highlight-color: transparent;
+        -webkit-text-size-adjust: 100%;
+      }
+
+      #root {
+        display: flex;
+        flex-direction: column;
+        min-height: 100%;
+        height: 100%;
+      }
+
+      /* Make React Native Web ScrollViews scrollable on mobile */
+      /* RNW applies overflow:hidden + touch-action:none by default */
+      div[style*="overflow"] {
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* Fix scroll containers: allow vertical pan gestures through */
+      [data-focusable="true"] {
+        touch-action: manipulation;
+      }
+
+      /* Prevent double-tap zoom on buttons/links */
+      button, a, [role="button"] {
+        touch-action: manipulation;
+      }
+
+      /* iOS safe area support */
+      @supports (padding: env(safe-area-inset-top)) {
+        #root {
+          padding-top: env(safe-area-inset-top);
+          padding-left: env(safe-area-inset-left);
+          padding-right: env(safe-area-inset-right);
+          padding-bottom: env(safe-area-inset-bottom);
+        }
+      }
+
+      /* Scrollbar styling for desktop */
+      ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+      }
+      ::-webkit-scrollbar-track {
+        background: transparent;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.2);
+        border-radius: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
