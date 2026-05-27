@@ -1,5 +1,5 @@
-import React from 'react';
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Linking, Platform } from 'react-native';
+import React, { useState } from 'react';
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Linking, Platform, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
 function Section({ number, icon, title, children }) {
@@ -28,6 +28,9 @@ function SubHeading({ text }) {
 }
 
 export default function PrivacyPolicyScreen({ navigation, route }) {
+  const { height: windowHeight } = useWindowDimensions();
+  const [headerHeight, setHeaderHeight] = useState(56);
+
   const goBack = () => {
     if (route?.params?.fromSettings) {
       navigation.navigate('Settings');
@@ -38,7 +41,7 @@ export default function PrivacyPolicyScreen({ navigation, route }) {
 
   return (
     <View style={styles.root}>
-      <View style={styles.header}>
+      <View style={styles.header} onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
@@ -47,9 +50,9 @@ export default function PrivacyPolicyScreen({ navigation, route }) {
       </View>
 
       <ScrollView
-        style={styles.scroll}
+        style={[styles.scroll, Platform.OS === 'web' && { height: windowHeight - headerHeight }]}
         contentContainerStyle={styles.content}
-        showsVerticalScrollIndicator={false}
+        showsVerticalScrollIndicator={true}
       >
         <View style={styles.updateBanner}>
           <Ionicons name="calendar-outline" size={16} color="#e65100" />
@@ -267,7 +270,6 @@ const styles = StyleSheet.create({
 
   scroll: {
     flex: 1,
-    ...Platform.select({ web: { overflow: 'scroll' } }),
   },
   content: {
     padding: 20,
