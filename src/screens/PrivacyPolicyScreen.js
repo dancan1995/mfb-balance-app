@@ -1,298 +1,246 @@
 import React from 'react';
-import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Platform } from 'react-native';
+import { ScrollView, StyleSheet, Text, View, TouchableOpacity, Linking, Platform } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
-export default function PrivacyPolicyScreen({ navigation, route }) {  // ← ADDED route HERE
+function Section({ number, icon, title, children }) {
   return (
-    <View style={styles.container}>
-      {/* Header */}
+    <View style={styles.section}>
+      <View style={styles.sectionHeader}>
+        <Ionicons name={icon} size={20} color="#2c5aa0" />
+        <Text style={styles.sectionTitle}>{number}. {title}</Text>
+      </View>
+      {children}
+    </View>
+  );
+}
+
+function Bullet({ text }) {
+  return (
+    <View style={styles.bulletRow}>
+      <Text style={styles.bulletDot}>•</Text>
+      <Text style={styles.bulletText}>{text}</Text>
+    </View>
+  );
+}
+
+function SubHeading({ text }) {
+  return <Text style={styles.subHeading}>{text}</Text>;
+}
+
+export default function PrivacyPolicyScreen({ navigation, route }) {
+  const goBack = () => {
+    if (route?.params?.fromSettings) {
+      navigation.navigate('Settings');
+    } else {
+      navigation.goBack();
+    }
+  };
+
+  return (
+    <View style={styles.root}>
       <View style={styles.header}>
-        <TouchableOpacity 
-          onPress={() => {
-            const fromSettings = route?.params?.fromSettings;
-            if (fromSettings) {
-              navigation.navigate('Settings');
-            } else {
-              navigation.goBack();
-            }
-          }} 
-          style={styles.backButton}
-        >
-          <Ionicons name="arrow-back" size={24} color="#333" />
+        <TouchableOpacity onPress={goBack} style={styles.backBtn}>
+          <Ionicons name="arrow-back" size={24} color="#fff" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Privacy Policy</Text>
-        <View style={styles.placeholder} />
+        <View style={styles.headerSpacer} />
       </View>
 
-      <ScrollView 
-        style={styles.scrollView}
+      <ScrollView
+        style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        {/* Last Updated */}
         <View style={styles.updateBanner}>
-          <Ionicons name="calendar-outline" size={16} color="#666" />
-          <Text style={styles.lastUpdated}>Last Updated: November 6, 2025</Text>
+          <Ionicons name="calendar-outline" size={16} color="#e65100" />
+          <Text style={styles.updateText}>Last Updated: May 26, 2026</Text>
         </View>
 
-        {/* Introduction */}
-        <View style={styles.section}>
+        <View style={styles.introBanner}>
+          <Ionicons name="shield-checkmark" size={22} color="#2c5aa0" />
           <Text style={styles.introText}>
-            Mary Free Bed Rehabilitation Hospital ("we," "us," or "our") is committed to protecting your privacy. 
-            This Privacy Policy explains how we collect, use, disclose, and safeguard your information when you use 
-            the MFB Balance Assessment App ("the App").
+            Mary Free Bed Rehabilitation Hospital ("we," "us," or "our") is committed to protecting
+            the privacy of clinicians and patients who interact with the MFB Balance App. This policy
+            describes exactly what data we collect, how it is stored, who can access it, and your rights
+            regarding that data.
           </Text>
         </View>
 
-        {/* Section 1 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="information-circle" size={20} color="#ff9500" />
-            <Text style={styles.sectionTitle}>1. Information We Collect</Text>
-          </View>
-          
-          <Text style={styles.subsectionTitle}>1.1 Personal Information</Text>
-          <Text style={styles.bodyText}>
-            We collect the following personal information:
-          </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletItem}>• Clinician name and email address</Text>
-            <Text style={styles.bulletItem}>• Employment ID</Text>
-            <Text style={styles.bulletItem}>• Organization affiliation</Text>
-          </View>
+        <Section number="1" icon="list" title="What Data We Collect">
+          <SubHeading text="1.1 Clinician Account Information" />
+          <Text style={styles.body}>Collected at login and saved to your user profile in Firebase:</Text>
+          <Bullet text="Full name and email address" />
+          <Bullet text="Firebase user ID (UID)" />
+          <Bullet text="Account role (clinician or administrator)" />
+          <Bullet text="Login timestamps (created, last login)" />
 
-          <Text style={styles.subsectionTitle}>1.2 Patient Assessment Data</Text>
-          <Text style={styles.bodyText}>
-            We collect de-identified patient assessment data including:
-          </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletItem}>• Participant ID (de-identified)</Text>
-            <Text style={styles.bulletItem}>• Assessment scores and results</Text>
-            <Text style={styles.bulletItem}>• Patient population category</Text>
-            <Text style={styles.bulletItem}>• Clinical setting information</Text>
-            <Text style={styles.bulletItem}>• Assessment date and time</Text>
-          </View>
+          <SubHeading text="1.2 Assessment Configuration Data" />
+          <Text style={styles.body}>Recorded when you start each assessment session:</Text>
+          <Bullet text="Globally unique de-identified Participant ID (auto-generated, never reused across any clinician account)" />
+          <Bullet text="Patient population category (e.g., Stroke, Parkinson's Disease, General, etc.)" />
+          <Bullet text="Clinical setting (Inpatient / Outpatient)" />
+          <Bullet text="Primary CAT selected (BBS or FGA) and Alternate CAT" />
+          <Bullet text="Seed value used to initialise the adaptive item sequence" />
 
-          <Text style={styles.subsectionTitle}>1.3 Technical Information</Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletItem}>• Device type and operating system</Text>
-            <Text style={styles.bulletItem}>• App usage statistics</Text>
-            <Text style={styles.bulletItem}>• Error logs and performance data</Text>
-          </View>
-        </View>
+          <SubHeading text="1.3 Assessment Scores & Timing Data" />
+          <Text style={styles.body}>
+            Recorded for every item administered during both the primary and alternate test phases:
+          </Text>
+          <Bullet text="Per-item scores — each of the 14 BBS items (0–4) or 10 FGA items (0–3), or -1 if marked Not Administered" />
+          <Bullet text="Per-item time-on-task in seconds (time from item presentation to score entry)" />
+          <Bullet text="Threshold time — the total elapsed time (seconds) and item count at which the CAT stopping criterion (Standard Error ≤ 0.32) was reached" />
+          <Bullet text="Total assessment duration in seconds and minutes" />
+          <Bullet text="Computed raw score, Rasch-converted score, and fall-risk classification (Low / Moderate / High) for both primary and alternate tests" />
+          <Bullet text="Date and time of assessment completion" />
 
-        {/* Section 2 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="shield-checkmark" size={20} color="#ff9500" />
-            <Text style={styles.sectionTitle}>2. How We Use Your Information</Text>
-          </View>
-          
-          <Text style={styles.bodyText}>
-            We use the collected information for the following purposes:
-          </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletItem}>• To provide and maintain the App's functionality</Text>
-            <Text style={styles.bulletItem}>• To conduct clinical research and analysis</Text>
-            <Text style={styles.bulletItem}>• To improve assessment algorithms and accuracy</Text>
-            <Text style={styles.bulletItem}>• To generate aggregate statistical reports</Text>
-            <Text style={styles.bulletItem}>• To ensure data quality and integrity</Text>
-            <Text style={styles.bulletItem}>• To provide technical support</Text>
-          </View>
-        </View>
+          <SubHeading text="1.4 In-Progress Session Data" />
+          <Bullet text="Current test phase (primary or alternate), current item index, and all scores entered so far" />
+          <Bullet text="Elapsed time at the point of saving" />
+          <Bullet text="Auto-saved locally every 30 seconds and synced to Firestore to prevent data loss" />
 
-        {/* Section 3 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="lock-closed" size={20} color="#ff9500" />
-            <Text style={styles.sectionTitle}>3. Data Storage and Security</Text>
-          </View>
-          
-          <Text style={styles.subsectionTitle}>3.1 Data Storage</Text>
-          <Text style={styles.bodyText}>
-            Your data is stored securely using:
-          </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletItem}>• Local device storage (encrypted)</Text>
-            <Text style={styles.bulletItem}>• Cloud storage via Firebase (Google Cloud Platform)</Text>
-            <Text style={styles.bulletItem}>• HIPAA-compliant infrastructure</Text>
-          </View>
+          <SubHeading text="1.5 Technical Information" />
+          <Bullet text="Platform / operating system (iOS, Android, or Web)" />
+          <Bullet text="App version and runtime errors (for debugging only)" />
+        </Section>
 
-          <Text style={styles.subsectionTitle}>3.2 Security Measures</Text>
-          <Text style={styles.bodyText}>
-            We implement industry-standard security measures including:
-          </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletItem}>• End-to-end encryption</Text>
-            <Text style={styles.bulletItem}>• Secure authentication protocols</Text>
-            <Text style={styles.bulletItem}>• Regular security audits</Text>
-            <Text style={styles.bulletItem}>• Access controls and user authentication</Text>
-            <Text style={styles.bulletItem}>• Automatic logout after inactivity</Text>
-          </View>
-        </View>
+        <Section number="2" icon="eye" title="How We Use Your Data">
+          <Bullet text="To authenticate your account and maintain your session securely" />
+          <Bullet text="To generate and display assessment results (scores, Rasch conversions, fall-risk classifications) immediately after assessment completion" />
+          <Bullet text="To populate the History screen with your past assessments and the Dashboard with aggregate statistics" />
+          <Bullet text="To enable Save & Exit so you can resume in-progress assessments across devices" />
+          <Bullet text="To allow the designated administrator to download a comprehensive XLSX report of all clinician assessments for research, quality improvement, and clinical analysis" />
+          <Bullet text="To compute globally unique Participant IDs by scanning all existing records across all clinician accounts" />
+          <Bullet text="To improve the accuracy of the CAT algorithm through aggregate de-identified data analysis" />
+        </Section>
 
-        {/* Section 4 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="people" size={20} color="#ff9500" />
-            <Text style={styles.sectionTitle}>4. Data Sharing and Disclosure</Text>
-          </View>
-          
-          <Text style={styles.bodyText}>
-            We do not sell, trade, or rent your personal information. We may share information only in the following circumstances:
+        <Section number="3" icon="lock-closed" title="Data Storage & Security">
+          <SubHeading text="3.1 Local Storage" />
+          <Text style={styles.body}>
+            Assessment history, saved sessions, and user preferences are cached on your device using
+            AsyncStorage. This data remains on-device until you log out or delete it manually.
           </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletItem}>• With authorized Mary Free Bed personnel for clinical purposes</Text>
-            <Text style={styles.bulletItem}>• For research purposes (de-identified data only)</Text>
-            <Text style={styles.bulletItem}>• When required by law or legal process</Text>
-            <Text style={styles.bulletItem}>• To protect rights, property, or safety</Text>
-            <Text style={styles.bulletItem}>• With your explicit consent</Text>
-          </View>
-        </View>
 
-        {/* Section 5 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="medical" size={20} color="#ff9500" />
-            <Text style={styles.sectionTitle}>5. HIPAA Compliance</Text>
-          </View>
-          
-          <Text style={styles.bodyText}>
-            This App is designed to comply with the Health Insurance Portability and Accountability Act (HIPAA). 
-            We implement appropriate safeguards to protect protected health information (PHI):
+          <SubHeading text="3.2 Cloud Storage (Firebase Firestore)" />
+          <Text style={styles.body}>
+            All assessment records are stored in Google Firebase Firestore, hosted on Google Cloud
+            Platform infrastructure. Data is organised in the following collections:
           </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletItem}>• Patient data is de-identified using unique participant IDs</Text>
-            <Text style={styles.bulletItem}>• No direct patient identifiers (names, MRNs) are stored in the App</Text>
-            <Text style={styles.bulletItem}>• Clinicians must maintain separate records linking participant IDs to patient identities</Text>
-            <Text style={styles.bulletItem}>• All data transmission is encrypted</Text>
-          </View>
-        </View>
+          <Bullet text="assessmentResults — completed assessments with all scores, timing, and outcome fields" />
+          <Bullet text="assessmentConfigs — assessment configuration records created at session start" />
+          <Bullet text="assessmentProgress — auto-saved in-progress session data" />
+          <Bullet text="users — clinician profile records" />
 
-        {/* Section 6 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="hand-right" size={20} color="#ff9500" />
-            <Text style={styles.sectionTitle}>6. Your Rights and Choices</Text>
-          </View>
-          
-          <Text style={styles.bodyText}>
-            You have the right to:
-          </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletItem}>• Access your personal information</Text>
-            <Text style={styles.bulletItem}>• Request correction of inaccurate data</Text>
-            <Text style={styles.bulletItem}>• Request deletion of your account and data</Text>
-            <Text style={styles.bulletItem}>• Opt-out of research data usage</Text>
-            <Text style={styles.bulletItem}>• Export your assessment data</Text>
-            <Text style={styles.bulletItem}>• Withdraw consent at any time</Text>
-          </View>
-        </View>
+          <SubHeading text="3.3 Security Measures" />
+          <Bullet text="All data in transit is encrypted via HTTPS/TLS (enforced by Firebase)" />
+          <Bullet text="Firestore security rules restrict read/write access to authenticated users only" />
+          <Bullet text="Firebase credentials (API keys) are stored as server-side environment variables and are never embedded in public source code" />
+          <Bullet text="Firebase Authentication manages session tokens with automatic expiry" />
+          <Bullet text="The admin XLSX download feature is restricted to a single designated administrator account verified by email address" />
+        </Section>
 
-        {/* Section 7 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="time" size={20} color="#ff9500" />
-            <Text style={styles.sectionTitle}>7. Data Retention</Text>
-          </View>
-          
-          <Text style={styles.bodyText}>
-            We retain your information for as long as necessary to:
+        <Section number="4" icon="people" title="Who Can Access Your Data">
+          <SubHeading text="4.1 You (the clinician)" />
+          <Text style={styles.body}>
+            You can view, search, and delete your own assessment records via the History screen.
+            You can also delete in-progress sessions from the Saved Sessions screen.
           </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletItem}>• Provide the App services</Text>
-            <Text style={styles.bulletItem}>• Comply with legal obligations</Text>
-            <Text style={styles.bulletItem}>• Resolve disputes</Text>
-            <Text style={styles.bulletItem}>• Conduct research (de-identified data may be retained indefinitely)</Text>
-          </View>
-          <Text style={styles.bodyText}>
-            Assessment data stored locally can be deleted at any time through the App settings.
-          </Text>
-        </View>
 
-        {/* Section 8 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="globe" size={20} color="#ff9500" />
-            <Text style={styles.sectionTitle}>8. Third-Party Services</Text>
-          </View>
-          
-          <Text style={styles.bodyText}>
-            The App uses the following third-party services:
+          <SubHeading text="4.2 The Administrator" />
+          <Text style={styles.body}>
+            The designated MFB administrator account can view and download all assessments submitted
+            by all clinicians as an XLSX file. This includes clinician name, email, all item scores,
+            per-item timing, threshold data, and computed outcomes — but never direct patient identifiers.
           </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletItem}>• Firebase (Google) - Cloud storage and authentication</Text>
-            <Text style={styles.bulletItem}>• Expo - App development and deployment platform</Text>
-          </View>
-          <Text style={styles.bodyText}>
-            These services have their own privacy policies and are HIPAA-compliant when configured appropriately.
-          </Text>
-        </View>
 
-        {/* Section 9 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="refresh" size={20} color="#ff9500" />
-            <Text style={styles.sectionTitle}>9. Changes to This Privacy Policy</Text>
-          </View>
-          
-          <Text style={styles.bodyText}>
-            We may update this Privacy Policy from time to time. We will notify you of any changes by:
+          <SubHeading text="4.3 Third-Party Services" />
+          <Bullet text="Google Firebase / Firestore — cloud database and authentication provider" />
+          <Bullet text="Expo — cross-platform app build and deployment infrastructure" />
+          <Bullet text="Render — web hosting platform for the web version of the App" />
+          <Text style={[styles.body, { marginTop: 8 }]}>
+            These providers operate under their own privacy policies and data processing agreements.
+            We do not sell, rent, or trade your data to any other third party.
           </Text>
-          <View style={styles.bulletList}>
-            <Text style={styles.bulletItem}>• Posting the new Privacy Policy in the App</Text>
-            <Text style={styles.bulletItem}>• Updating the "Last Updated" date</Text>
-            <Text style={styles.bulletItem}>• Sending email notifications for material changes</Text>
-          </View>
-          <Text style={styles.bodyText}>
-            Your continued use of the App after changes constitutes acceptance of the updated policy.
-          </Text>
-        </View>
+        </Section>
 
-        {/* Section 10 */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Ionicons name="mail" size={20} color="#ff9500" />
-            <Text style={styles.sectionTitle}>10. Contact Us</Text>
-          </View>
-          
-          <Text style={styles.bodyText}>
-            If you have questions or concerns about this Privacy Policy, please contact us:
+        <Section number="5" icon="medical" title="HIPAA Compliance">
+          <Text style={styles.body}>
+            The App is designed to support HIPAA-compliant clinical workflows:
           </Text>
-          
+          <Bullet text="No direct patient identifiers (names, dates of birth, MRN, addresses) are entered into or stored by the App" />
+          <Bullet text="Patients are represented only by a de-identified, auto-generated Participant ID" />
+          <Bullet text="Clinicians are responsible for maintaining a separate, secure record that links Participant IDs to actual patient identities" />
+          <Bullet text="All data transmission between the App and Firebase is encrypted" />
+          <Bullet text="Access to the cloud database requires authenticated MFB credentials" />
+        </Section>
+
+        <Section number="6" icon="hand-right" title="Your Rights">
+          <Bullet text="Access — request a copy of all data associated with your account" />
+          <Bullet text="Correction — request correction of inaccurate profile or assessment records" />
+          <Bullet text="Deletion — delete individual assessments via the History screen; request full account deletion by contacting the administrator" />
+          <Bullet text="Portability — the administrator can export your data as XLSX on request" />
+          <Bullet text="Restriction — request that your data be excluded from aggregate research analysis" />
+          <Bullet text="Withdrawal — stop using the App at any time; locally cached data can be cleared via the Settings screen" />
+        </Section>
+
+        <Section number="7" icon="time" title="Data Retention">
+          <Text style={styles.body}>
+            Assessment records in Firebase Firestore are retained indefinitely for longitudinal research
+            and clinical quality purposes unless deletion is requested. In-progress sessions saved locally
+            are retained until the session is resumed and completed, manually deleted, or the App is
+            uninstalled. Clinician profile data is retained while the account remains active.
+          </Text>
+        </Section>
+
+        <Section number="8" icon="refresh" title="Changes to This Policy">
+          <Text style={styles.body}>
+            We may update this Privacy Policy as the App evolves. The "Last Updated" date at the top
+            will reflect any revision. Material changes will be communicated by email to registered
+            clinicians. Continued use of the App after updates constitutes acceptance of the revised policy.
+          </Text>
+        </Section>
+
+        <Section number="9" icon="mail" title="Contact Us">
+          <Text style={styles.body}>
+            For privacy questions, data requests, or to report a concern:
+          </Text>
           <View style={styles.contactBox}>
-            <View style={styles.contactItem}>
+            <View style={styles.contactRow}>
               <Ionicons name="business" size={16} color="#666" />
               <Text style={styles.contactText}>Mary Free Bed Rehabilitation Hospital</Text>
             </View>
-            <View style={styles.contactItem}>
+            <View style={styles.contactRow}>
               <Ionicons name="location" size={16} color="#666" />
               <Text style={styles.contactText}>Grand Rapids, Michigan</Text>
             </View>
-            <View style={styles.contactItem}>
+            <View style={styles.contactRow}>
               <Ionicons name="mail" size={16} color="#666" />
               <Text style={styles.contactText}>research@maryfreebed.com</Text>
             </View>
-            <View style={styles.contactItem}>
+            <View style={styles.contactRow}>
               <Ionicons name="call" size={16} color="#666" />
               <Text style={styles.contactText}>(616) 840-8000</Text>
             </View>
+            <TouchableOpacity
+              style={styles.contactBtn}
+              onPress={() => Linking.openURL('mailto:research@maryfreebed.com')}
+            >
+              <Ionicons name="mail" size={18} color="#fff" />
+              <Text style={styles.contactBtnText}>Email Privacy Team</Text>
+            </TouchableOpacity>
           </View>
+        </Section>
+
+        <View style={styles.ackBox}>
+          <Ionicons name="shield-checkmark" size={24} color="#2c5aa0" />
+          <Text style={styles.ackText}>
+            By using the MFB Balance App you acknowledge that you have read and understood this
+            Privacy Policy and consent to the collection and use of data as described.
+          </Text>
         </View>
 
-        {/* Footer */}
         <View style={styles.footer}>
-          <Ionicons name="shield-checkmark-outline" size={24} color="#999" />
-          <Text style={styles.footerText}>
-            Your privacy and data security are our top priorities
-          </Text>
-        </View>
-
-        {/* Acknowledgment */}
-        <View style={styles.acknowledgment}>
-          <Text style={styles.acknowledgmentText}>
-            By using the MFB Balance Assessment App, you acknowledge that you have read and understood this Privacy Policy.
-          </Text>
+          <Text style={styles.footerText}>© 2026 Mary Free Bed Rehabilitation Hospital</Text>
+          <Text style={styles.footerText}>All Rights Reserved</Text>
         </View>
       </ScrollView>
     </View>
@@ -300,151 +248,126 @@ export default function PrivacyPolicyScreen({ navigation, route }) {  // ← ADD
 }
 
 const styles = StyleSheet.create({
-  container: {
+  root: {
     flex: 1,
     backgroundColor: '#f5f5f5',
+    ...Platform.select({ web: { height: '100vh' } }),
   },
   header: {
+    backgroundColor: '#2c5aa0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    paddingTop: Platform.OS === 'ios' ? 50 : Platform.OS === 'web' ? 16 : 20,
+    paddingBottom: 16,
     paddingHorizontal: 16,
-    paddingVertical: 16,
-    paddingTop: Platform.OS === 'ios' ? 50 : 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
-  backButton: {
-    padding: 8,
-  },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  placeholder: {
-    width: 40,
-  },
-  scrollView: {
+  backBtn: { padding: 8 },
+  headerTitle: { fontSize: 20, fontWeight: 'bold', color: '#fff' },
+  headerSpacer: { width: 40 },
+
+  scroll: {
     flex: 1,
+    ...Platform.select({ web: { overflowY: 'auto' } }),
   },
   content: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 60,
     width: '100%',
-    maxWidth: 960,
+    maxWidth: 800,
     alignSelf: 'center',
   },
+
   updateBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff3e0',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 20,
     gap: 8,
+    backgroundColor: '#fff3e0',
+    padding: 10,
+    borderRadius: 8,
+    marginBottom: 16,
   },
-  lastUpdated: {
-    fontSize: 13,
-    color: '#e65100',
-    fontWeight: '600',
+  updateText: { fontSize: 13, color: '#e65100', fontWeight: '600' },
+
+  introBanner: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: '#e3f2fd',
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2c5aa0',
   },
+  introText: { flex: 1, fontSize: 14, color: '#1a3a5c', lineHeight: 22 },
+
   section: {
-    marginBottom: 28,
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    ...Platform.select({
+      web: { boxShadow: '0 1px 4px rgba(0,0,0,0.08)' },
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 3 },
+      android: { elevation: 2 },
+    }),
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
     marginBottom: 12,
-    gap: 8,
+    paddingBottom: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  subsectionTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: '#555',
-    marginTop: 12,
-    marginBottom: 8,
-  },
-  introText: {
-    fontSize: 15,
-    lineHeight: 24,
-    color: '#333',
-    textAlign: 'justify',
-  },
-  bodyText: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#555',
-    marginBottom: 10,
-    textAlign: 'justify',
-  },
-  bulletList: {
-    marginLeft: 8,
-    marginTop: 8,
-    marginBottom: 12,
-  },
-  bulletItem: {
-    fontSize: 14,
-    lineHeight: 24,
-    color: '#555',
-    marginBottom: 4,
-  },
+  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#1a1a2e', flex: 1 },
+
+  subHeading: { fontSize: 14, fontWeight: '700', color: '#2c5aa0', marginTop: 12, marginBottom: 6 },
+  body: { fontSize: 14, color: '#444', lineHeight: 22, marginBottom: 8 },
+
+  bulletRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6, paddingLeft: 4 },
+  bulletDot: { color: '#2c5aa0', fontWeight: 'bold', fontSize: 16, marginRight: 8, lineHeight: 22 },
+  bulletText: { flex: 1, fontSize: 14, color: '#555', lineHeight: 22 },
+
   contactBox: {
     backgroundColor: '#e3f2fd',
-    padding: 16,
     borderRadius: 10,
-    marginTop: 12,
+    padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#2196f3',
+    borderLeftColor: '#2c5aa0',
+    gap: 10,
+    marginTop: 8,
   },
-  contactItem: {
+  contactRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  contactText: { fontSize: 14, color: '#333' },
+  contactBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 10,
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#2c5aa0',
+    paddingVertical: 10,
+    borderRadius: 8,
+    marginTop: 4,
   },
-  contactText: {
-    fontSize: 14,
-    color: '#333',
-  },
-  footer: {
-    alignItems: 'center',
-    marginTop: 20,
-    padding: 20,
-    backgroundColor: '#fff',
+  contactBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 14 },
+
+  ackBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: '#e8eaf6',
     borderRadius: 12,
-    gap: 10,
-  },
-  footerText: {
-    fontSize: 13,
-    color: '#666',
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  acknowledgment: {
-    backgroundColor: '#fff8e1',
     padding: 16,
-    borderRadius: 10,
-    marginTop: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#ffa726',
+    borderWidth: 2,
+    borderColor: '#2c5aa0',
+    marginTop: 8,
+    marginBottom: 24,
   },
-  acknowledgmentText: {
-    fontSize: 13,
-    color: '#e65100',
-    textAlign: 'center',
-    lineHeight: 20,
-    fontWeight: '500',
-  },
+  ackText: { flex: 1, fontSize: 13, color: '#1a3a5c', lineHeight: 20, fontWeight: '500' },
+
+  footer: { alignItems: 'center', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e0e0e0', gap: 4 },
+  footerText: { fontSize: 12, color: '#999' },
 });
