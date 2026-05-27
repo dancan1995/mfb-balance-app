@@ -64,7 +64,6 @@ export default function LoginScreen({ navigation }) {
 
   const features = [
     { icon: 'shield-checkmark', text: 'Secure & HIPAA-aligned' },
-    { icon: 'cloud-done', text: 'Real-time cloud sync' },
     { icon: 'stats-chart', text: 'Evidence-based CAT scoring' },
     { icon: 'people', text: 'Multi-clinician support' },
   ];

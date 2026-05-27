@@ -219,7 +219,6 @@ const styles = StyleSheet.create({
   root: {
     flex: 1,
     backgroundColor: '#f5f5f5',
-    ...Platform.select({ web: { height: '100vh', overflow: 'hidden' } }),
   },
   header: {
     backgroundColor: '#ff9500',
