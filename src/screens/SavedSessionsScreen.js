@@ -194,127 +194,129 @@ export default function SavedSessionsScreen({ navigation }) {
   }
 
   return (
-    <ScrollView
-      style={styles.container}
-      contentContainerStyle={styles.scrollContent}
-      refreshControl={
-        <RefreshControl
-          refreshing={refreshing}
-          onRefresh={onRefresh}
-          colors={['#3c8dbc']}
-          tintColor="#3c8dbc"
-        />
-      }
-    >
-      <View style={styles.pageWrapper}>
-      <View style={styles.header}>
-        <View style={styles.headerTop}>
-          <Text style={styles.title}>Saved Sessions</Text>
-        </View>
-        <Text style={styles.subtitle}>
-          {sessionEntries.length} saved session{sessionEntries.length !== 1 ? 's' : ''}
-        </Text>
-      </View>
-
-      {sessionEntries.length === 0 ? (
-        <View style={styles.emptyContainer}>
-          <Ionicons name="save-outline" size={80} color="#ccc" />
-          <Text style={styles.emptyText}>No saved sessions</Text>
-          <Text style={styles.emptySubtext}>
-            Saved sessions will appear here when you use 'Save & Exit' during an assessment
+    <View style={styles.rootContainer}>
+      <ScrollView
+        style={styles.container}
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={onRefresh}
+            colors={['#3c8dbc']}
+            tintColor="#3c8dbc"
+          />
+        }
+      >
+        <View style={styles.pageWrapper}>
+        <View style={styles.header}>
+          <View style={styles.headerTop}>
+            <Text style={styles.title}>Saved Sessions</Text>
+          </View>
+          <Text style={styles.subtitle}>
+            {sessionEntries.length} saved session{sessionEntries.length !== 1 ? 's' : ''}
           </Text>
         </View>
-      ) : (
-        sessionEntries
-          .sort(([, a], [, b]) => new Date(b.saveTime) - new Date(a.saveTime)) // Sort by most recent
-          .map(([sessionId, session]) => (
-            <Card key={sessionId} style={styles.sessionCard}>
-              <Card.Content>
-                <View style={styles.cardHeader}>
-                  <View style={styles.cardHeaderLeft}>
-                    <Text style={styles.participantId}>
-                      Participant ID: {session.participantId}
-                    </Text>
-                  </View>
-                  <Text style={styles.saveTime}>
-                    {new Date(session.saveTime).toLocaleString()}
-                  </Text>
-                </View>
 
-                <View style={styles.infoRow}>
-                  <Text style={styles.label}>Primary CAT:</Text>
-                  <Text style={styles.value}>{session.currentTest}</Text>
-                </View>
-
-                <View style={styles.infoRow}>
-                  <Text style={styles.label}>Phase:</Text>
-                  <View style={styles.phaseContainer}>
-                    <Text style={styles.value}>{session.testPhase}</Text>
-                    <View style={[
-                      styles.phaseBadge,
-                      session.testPhase === 'alternate' && styles.phaseBadgeAlternate
-                    ]}>
-                      <Text style={styles.phaseBadgeText}>
-                        {session.testPhase === 'primary' ? 'Primary' : 'Alternate'}
+        {sessionEntries.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Ionicons name="save-outline" size={80} color="#ccc" />
+            <Text style={styles.emptyText}>No saved sessions</Text>
+            <Text style={styles.emptySubtext}>
+              Saved sessions will appear here when you use 'Save & Exit' during an assessment
+            </Text>
+          </View>
+        ) : (
+          sessionEntries
+            .sort(([, a], [, b]) => new Date(b.saveTime) - new Date(a.saveTime))
+            .map(([sessionId, session]) => (
+              <Card key={sessionId} style={styles.sessionCard}>
+                <Card.Content>
+                  <View style={styles.cardHeader}>
+                    <View style={styles.cardHeaderLeft}>
+                      <Text style={styles.participantId}>
+                        Participant ID: {session.participantId}
                       </Text>
                     </View>
+                    <Text style={styles.saveTime}>
+                      {new Date(session.saveTime).toLocaleString()}
+                    </Text>
                   </View>
-                </View>
 
-                <View style={styles.infoRow}>
-                  <Text style={styles.label}>PT:</Text>
-                  <Text style={styles.value}>{session.ptName}</Text>
-                </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Primary CAT:</Text>
+                    <Text style={styles.value}>{session.currentTest}</Text>
+                  </View>
 
-                <View style={styles.infoRow}>
-                  <Text style={styles.label}>Population:</Text>
-                  <Text style={styles.value}>{session.population}</Text>
-                </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Phase:</Text>
+                    <View style={styles.phaseContainer}>
+                      <Text style={styles.value}>{session.testPhase}</Text>
+                      <View style={[
+                        styles.phaseBadge,
+                        session.testPhase === 'alternate' && styles.phaseBadgeAlternate
+                      ]}>
+                        <Text style={styles.phaseBadgeText}>
+                          {session.testPhase === 'primary' ? 'Primary' : 'Alternate'}
+                        </Text>
+                      </View>
+                    </View>
+                  </View>
 
-                <View style={styles.infoRow}>
-                  <Text style={styles.label}>Setting:</Text>
-                  <Text style={styles.value}>{session.setting}</Text>
-                </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>PT:</Text>
+                    <Text style={styles.value}>{session.ptName}</Text>
+                  </View>
 
-                <View style={styles.infoRow}>
-                  <Text style={styles.label}>Progress:</Text>
-                  <Text style={styles.value}>
-                    Item {(session.currentItemIndex || 0) + 1}
-                  </Text>
-                </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Population:</Text>
+                    <Text style={styles.value}>{session.population}</Text>
+                  </View>
 
-                <View style={styles.infoRow}>
-                  <Text style={styles.label}>Elapsed Time:</Text>
-                  <Text style={styles.value}>
-                    {Math.floor(session.elapsedTime / 60)}:{String(session.elapsedTime % 60).padStart(2, '0')}
-                  </Text>
-                </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Setting:</Text>
+                    <Text style={styles.value}>{session.setting}</Text>
+                  </View>
 
-                <View style={styles.buttonRow}>
-                  <Button
-                    mode="contained"
-                    onPress={() => handleResume(sessionId, session)}
-                    style={styles.resumeButton}
-                    icon="play-circle"
-                    buttonColor="#3c8dbc"
-                  >
-                    Resume
-                  </Button>
-                  <Button
-                    mode="outlined"
-                    onPress={() => handleDelete(sessionId, session)}
-                    style={styles.deleteButton}
-                    textColor="#dc3545"
-                    icon="delete"
-                  >
-                    Delete
-                  </Button>
-                </View>
-              </Card.Content>
-            </Card>
-          ))
-      )}
-      </View>
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Progress:</Text>
+                    <Text style={styles.value}>
+                      Item {(session.currentItemIndex || 0) + 1}
+                    </Text>
+                  </View>
+
+                  <View style={styles.infoRow}>
+                    <Text style={styles.label}>Elapsed Time:</Text>
+                    <Text style={styles.value}>
+                      {Math.floor(session.elapsedTime / 60)}:{String(session.elapsedTime % 60).padStart(2, '0')}
+                    </Text>
+                  </View>
+
+                  <View style={styles.buttonRow}>
+                    <Button
+                      mode="contained"
+                      onPress={() => handleResume(sessionId, session)}
+                      style={styles.resumeButton}
+                      icon="play-circle"
+                      buttonColor="#3c8dbc"
+                    >
+                      Resume
+                    </Button>
+                    <Button
+                      mode="outlined"
+                      onPress={() => handleDelete(sessionId, session)}
+                      style={styles.deleteButton}
+                      textColor="#dc3545"
+                      icon="delete"
+                    >
+                      Delete
+                    </Button>
+                  </View>
+                </Card.Content>
+              </Card>
+            ))
+        )}
+        </View>
+      </ScrollView>
       <ConfirmModal
         visible={confirmModal.visible}
         title={confirmModal.title}
@@ -324,11 +326,15 @@ export default function SavedSessionsScreen({ navigation }) {
         onConfirm={confirmModal.onConfirm}
         onCancel={confirmModal.onCancel}
       />
-    </ScrollView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  rootContainer: {
+    flex: 1,
+    backgroundColor: '#f5f5f5',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f5f5f5',

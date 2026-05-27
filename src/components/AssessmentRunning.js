@@ -903,8 +903,6 @@ const styles = StyleSheet.create({
   progressFill: { height: '100%', backgroundColor: '#4caf50' },
   progressFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   completedText: { fontSize: 13, color: '#666' },
-  cloudSyncBadge: { flexDirection: 'row', alignItems: 'center', gap: 4, backgroundColor: '#e8f5e9', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12 },
-  cloudSyncText: { fontSize: 11, color: '#4caf50', fontWeight: '600' },
   stoppingCriteriaCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
