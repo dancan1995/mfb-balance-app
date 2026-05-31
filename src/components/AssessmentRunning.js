@@ -167,7 +167,7 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     if (isResumedSession && assessmentData.primaryCatOrder?.length > 0) {
       return assessmentData.primaryCatOrder;
     }
-    return [selectFirstCATItem(getDifficulties(assessmentData.currentTest))];
+    return [selectFirstCATItem(getDifficulties(assessmentData.currentTest), assessmentData.seedValue)];
   });
 
   const [alternateCatOrder, setAlternateCatOrder] = useState(() => {
@@ -176,7 +176,7 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     }
     // If resumed mid-alternate phase but no catOrder saved, start from scratch
     if (isResumedSession && assessmentData.testPhase === 'alternate') {
-      return [selectFirstCATItem(getDifficulties(assessmentData.alternateTest))];
+      return [selectFirstCATItem(getDifficulties(assessmentData.alternateTest), assessmentData.seedValue)];
     }
     return []; // populated when startAlternateTest() is called
   });
@@ -351,50 +351,36 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
 
   // ── CAT helpers ─────────────────────────────────────────────────────────────
 
-  // Compute SE synchronously from a fresh score array (avoids stale state)
-  const computeSE = (scoreArray) => {
-    const validScores = scoreArray.filter(s => s !== null && s >= 0);
-    if (validScores.length < MIN_ITEMS_BEFORE_STOP) return null;
-    const mean = validScores.reduce((a, b) => a + b, 0) / validScores.length;
-    const variance = validScores.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / validScores.length;
-    return Math.sqrt(variance / validScores.length);
-  };
-
-  // Append next adaptive item and advance to it; or end the phase
+  // Select next adaptive item and advance; end phase only when all items done.
+  // Stopping criteria (SE ≤ 0.32) is shown as an informational banner only —
+  // clinicians continue administering every item during the validation study.
   const advanceCAT = (newScores, currentCatOrder, setCatOrder, phase) => {
     const testType = phase === 'primary' ? assessmentData.currentTest : assessmentData.alternateTest;
     const difficulties = getDifficulties(testType);
     const maxScore = getMaxScore(testType);
+    const totalItems = Object.keys(difficulties).length;
 
-    const se = computeSE(newScores);
-    const stoppingNow = se !== null && se <= STANDARD_ERROR_THRESHOLD;
-    const allAdministered = currentCatOrder.length >= items.length;
+    const nextItem = currentCatOrder.length < totalItems
+      ? selectNextCATItem(
+          estimateTheta(currentCatOrder, newScores, difficulties, maxScore),
+          currentCatOrder,
+          difficulties
+        )
+      : null;
 
-    if (stoppingNow || allAdministered) {
-      // CAT stopping criterion met — end this phase
+    if (nextItem === null) {
+      // All items administered — end this phase
       setTimeout(() => {
         if (phase === 'primary') setShowTransitionModal(true);
         else completeAssessment();
       }, 400);
     } else {
-      // Select next item adaptively
-      const theta = estimateTheta(currentCatOrder, newScores, difficulties, maxScore);
-      const nextItem = selectNextCATItem(theta, currentCatOrder, difficulties);
-
-      if (nextItem === null) {
-        // All items exhausted
-        setTimeout(() => {
-          if (phase === 'primary') setShowTransitionModal(true);
-          else completeAssessment();
-        }, 400);
-      } else {
-        setCatOrder(prev => [...prev, nextItem]);
-        setTimeout(() => {
-          setCurrentItemIndex(prev => prev + 1);
-          setShowInstruction(false);
-          setShowNotAdminOptions(false);
-        }, 300);
-      }
+      setCatOrder(prev => [...prev, nextItem]);
+      setTimeout(() => {
+        setCurrentItemIndex(prev => prev + 1);
+        setShowInstruction(false);
+        setShowNotAdminOptions(false);
+      }, 300);
     }
   };
 
@@ -434,7 +420,7 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     setTestPhase('alternate');
     setCurrentItemIndex(0);
     // Initialise alternate CAT order with the first adaptive item
-    const firstItem = selectFirstCATItem(getDifficulties(assessmentData.alternateTest));
+    const firstItem = selectFirstCATItem(getDifficulties(assessmentData.alternateTest), assessmentData.seedValue);
     setAlternateCatOrder([firstItem]);
     setShowInstruction(false);
     setShowNotAdminOptions(false);
@@ -448,22 +434,6 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     }
   };
 
-  // ── Manual Next button ──────────────────────────────────────────────────────
-  const handleNext = () => {
-    if (currentScore === null) {
-      Alert.alert('No Score Selected', 'Please select a score or skip this item to continue.');
-      return;
-    }
-    // If stopping criteria already met or no more adaptive items, end the phase
-    if (stoppingCriteriaMet || catOrder.length <= currentItemIndex + 1) {
-      if (testPhase === 'primary') setShowTransitionModal(true);
-      else completeAssessment();
-    } else {
-      setCurrentItemIndex(currentItemIndex + 1);
-      setShowInstruction(false);
-      setShowNotAdminOptions(false);
-    }
-  };
 
   // ── Skip (no score) ─────────────────────────────────────────────────────────
   const handleSkip = () => {
@@ -486,7 +456,8 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
         const theta = estimateTheta(scoredSoFar, scores, difficulties, maxScore);
         const nextItem = selectNextCATItem(theta, catOrder, difficulties);
 
-        if (nextItem !== null && catOrder.length < items.length) {
+        const totalItems = Object.keys(difficulties).length;
+        if (nextItem !== null && catOrder.length < totalItems) {
           setCatOrder(prev => [...prev, nextItem]);
           setCurrentItemIndex(currentItemIndex + 1);
           setShowInstruction(false);
@@ -550,8 +521,9 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     const theta = estimateTheta(catOrder, newScores, difficulties, maxScore);
     const nextItem = selectNextCATItem(theta, catOrder, difficulties);
 
+    const totalItems = Object.keys(difficulties).length;
     setTimeout(() => {
-      if (nextItem !== null && catOrder.length < items.length) {
+      if (nextItem !== null && catOrder.length < totalItems) {
         setCatOrder(prev => [...prev, nextItem]);
         setCurrentItemIndex(prev => prev + 1);
         setShowInstruction(false);

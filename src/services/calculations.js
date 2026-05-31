@@ -33,20 +33,32 @@ export const FGA_ITEM_DIFFICULTIES = {
 };
 
 /**
- * Select the first CAT item: the item whose difficulty is closest to θ = 0
- * (the population median), ensuring neither floor nor ceiling at the start.
+ * Select the first CAT item for a new assessment.
+ *
+ * Builds a pool of "moderate-difficulty" candidates (|b| ≤ 1.5 logits from
+ * the population median θ = 0) so the test can move in either direction.
+ *
+ * - With a numeric seedValue: picks deterministically using seed % pool size,
+ *   so different seeds produce different starting items reproducibly.
+ * - Without a seed: picks randomly from the pool, ensuring patients in the
+ *   same session don't all begin on the same item.
  */
-export function selectFirstCATItem(difficulties) {
-  let bestItem = null;
-  let minDist = Infinity;
-  Object.entries(difficulties).forEach(([key, b]) => {
-    const dist = Math.abs(b); // distance from θ = 0
-    if (dist < minDist) {
-      minDist = dist;
-      bestItem = parseInt(key);
-    }
-  });
-  return bestItem;
+export function selectFirstCATItem(difficulties, seedValue = null) {
+  // Pool: items with |b| ≤ 1.5, sorted closest-to-zero first
+  const candidates = Object.entries(difficulties)
+    .filter(([, b]) => Math.abs(b) <= 1.5)
+    .sort((a, b) => Math.abs(parseFloat(a[1])) - Math.abs(parseFloat(b[1])));
+
+  const pool = candidates.length > 0 ? candidates : Object.entries(difficulties);
+
+  const seed = seedValue !== null ? parseInt(seedValue) : NaN;
+  if (!isNaN(seed)) {
+    // Seed-based: reproducible across devices but varies by seed value
+    return parseInt(pool[Math.abs(seed) % pool.length][0]);
+  }
+
+  // No seed: random pick so different patients start on different items
+  return parseInt(pool[Math.floor(Math.random() * pool.length)][0]);
 }
 
 /**
