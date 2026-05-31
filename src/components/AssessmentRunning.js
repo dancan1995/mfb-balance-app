@@ -6,6 +6,13 @@ import { StorageService } from '../services/storage';
 import { saveAssessmentProgress, updateAssessmentStatus } from '../services/firestore';
 import { AnalyticsService } from '../services/analytics';
 import { Ionicons } from '@expo/vector-icons';
+import {
+  BBS_ITEM_DIFFICULTIES,
+  FGA_ITEM_DIFFICULTIES,
+  selectFirstCATItem,
+  estimateTheta,
+  selectNextCATItem,
+} from '../services/calculations';
 
 // Stopping Criteria Constants
 const STANDARD_ERROR_THRESHOLD = 0.32;
@@ -39,6 +46,11 @@ const NOT_ADMINISTERED_REASONS = [
   { value: 'time', label: 'Time Constraints', icon: 'time', description: 'Insufficient time available' },
   { value: 'other', label: 'Other Reason', icon: 'ellipsis-horizontal-circle', description: 'Other unspecified reason' }
 ];
+
+// Helpers
+const getDifficulties = (testType) =>
+  testType === 'BBS' ? BBS_ITEM_DIFFICULTIES : FGA_ITEM_DIFFICULTIES;
+const getMaxScore = (testType) => (testType === 'BBS' ? 4 : 3);
 
 // Reusable in-app confirm dialog (replaces Alert.alert for web compatibility)
 function ConfirmModal({ visible, title, message, confirmText, confirmColor, onConfirm, onCancel }) {
@@ -146,35 +158,55 @@ function NotAdminReasonCard({ reason, isSelected, onPress }) {
 }
 
 export default function AssessmentRunning({ assessmentData, onComplete, onCancel }) {
-  // Check if this is a resumed session
   const isResumedSession = assessmentData.testPhase && assessmentData.primaryScores;
 
-  // Initialize state from saved session or start fresh
+  // ── CAT order initialisation ────────────────────────────────────────────────
+  // primaryCatOrder / alternateCatOrder: arrays of 1-based item numbers in the
+  // adaptive administration sequence. Grows by one entry after each scored item.
+  const [primaryCatOrder, setPrimaryCatOrder] = useState(() => {
+    if (isResumedSession && assessmentData.primaryCatOrder?.length > 0) {
+      return assessmentData.primaryCatOrder;
+    }
+    return [selectFirstCATItem(getDifficulties(assessmentData.currentTest))];
+  });
+
+  const [alternateCatOrder, setAlternateCatOrder] = useState(() => {
+    if (isResumedSession && assessmentData.alternateCatOrder?.length > 0) {
+      return assessmentData.alternateCatOrder;
+    }
+    // If resumed mid-alternate phase but no catOrder saved, start from scratch
+    if (isResumedSession && assessmentData.testPhase === 'alternate') {
+      return [selectFirstCATItem(getDifficulties(assessmentData.alternateTest))];
+    }
+    return []; // populated when startAlternateTest() is called
+  });
+
+  // ── Session state ───────────────────────────────────────────────────────────
   const [testPhase, setTestPhase] = useState(isResumedSession ? assessmentData.testPhase : 'primary');
   const [currentItemIndex, setCurrentItemIndex] = useState(isResumedSession ? (assessmentData.currentItemIndex || 0) : 0);
+
+  // Scores stored ITEM-INDEXED: scores[itemNum - 1] holds the score for that item.
+  // Unadministered items remain null; Not-Administered items are -1.
   const [primaryScores, setPrimaryScores] = useState(
     isResumedSession && assessmentData.primaryScores
       ? assessmentData.primaryScores
-      : Array(14).fill(null)
+      : Array(assessmentData.currentTest === 'BBS' ? 14 : 10).fill(null)
   );
   const [alternateScores, setAlternateScores] = useState(
     isResumedSession && assessmentData.alternateScores
       ? assessmentData.alternateScores
-      : Array(10).fill(null)
+      : Array(assessmentData.alternateTest === 'BBS' ? 14 : 10).fill(null)
   );
 
-  // Calculate start time accounting for elapsed time from saved session
   const initialElapsed = isResumedSession ? (assessmentData.elapsedTime || 0) : 0;
-  const [startTime] = useState(new Date(Date.now() - (initialElapsed * 1000)));
+  const [startTime] = useState(new Date(Date.now() - initialElapsed * 1000));
   const [elapsed, setElapsed] = useState(initialElapsed);
 
-  // Per-item timing
   const itemStartTimestampRef = React.useRef(Date.now());
   const elapsedRef = React.useRef(initialElapsed);
   const [primaryItemDurations, setPrimaryItemDurations] = useState({});
   const [alternateItemDurations, setAlternateItemDurations] = useState({});
 
-  // Threshold (stopping criteria) timing
   const [primaryThresholdTimeSec, setPrimaryThresholdTimeSec] = useState(null);
   const [primaryThresholdItemCount, setPrimaryThresholdItemCount] = useState(null);
   const [alternateThresholdTimeSec, setAlternateThresholdTimeSec] = useState(null);
@@ -186,7 +218,6 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
   const [lastSavedProgress, setLastSavedProgress] = useState(null);
   const [showTransitionModal, setShowTransitionModal] = useState(false);
 
-  // Unified confirm modal state
   const [confirmModal, setConfirmModal] = useState({
     visible: false, title: '', message: '', confirmText: 'OK', confirmColor: '#dc3545', onConfirm: null, onCancel: null,
   });
@@ -199,11 +230,23 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
   };
   const hideConfirm = () => setConfirmModal(p => ({ ...p, visible: false }));
 
-  // Stopping Criteria States
   const [stoppingCriteriaMet, setStoppingCriteriaMet] = useState(false);
   const [standardError, setStandardError] = useState(null);
 
-  // Show resume notification
+  // ── Derived values for current item ────────────────────────────────────────
+  const currentTest = testPhase === 'primary' ? assessmentData.currentTest : assessmentData.alternateTest;
+  const items = currentTest === 'BBS' ? BBS_ITEMS : FGA_ITEMS;
+  const itemDetails = currentTest === 'BBS' ? BBS_ITEM_DETAILS : FGA_ITEM_DETAILS;
+  const scoreOptions = currentTest === 'BBS' ? BBS_SCORE_OPTIONS : FGA_SCORE_OPTIONS;
+  const scores = testPhase === 'primary' ? primaryScores : alternateScores;
+  const catOrder = testPhase === 'primary' ? primaryCatOrder : alternateCatOrder;
+
+  // 1-based item number currently being presented (adaptive selection)
+  const currentItemNum = catOrder[currentItemIndex] ?? 1;
+  const currentScore = scores[currentItemNum - 1];
+  const currentItemDetail = itemDetails[currentItemNum];
+
+  // ── Resume notification ─────────────────────────────────────────────────────
   useEffect(() => {
     if (isResumedSession) {
       const completedCount = [...assessmentData.primaryScores, ...assessmentData.alternateScores].filter(s => s !== null).length;
@@ -214,46 +257,26 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
         `Elapsed time: ${formatTime(initialElapsed)}`,
         [{ text: 'Continue', style: 'default' }]
       );
-      console.log('Resumed session:', {
-        testPhase,
-        currentItemIndex,
-        completedItems: completedCount,
-        elapsedTime: initialElapsed
-      });
     }
   }, []);
 
-  const currentTest = testPhase === 'primary' ? assessmentData.currentTest : assessmentData.alternateTest;
-  const items = currentTest === 'BBS' ? BBS_ITEMS : FGA_ITEMS;
-  const itemDetails = currentTest === 'BBS' ? BBS_ITEM_DETAILS : FGA_ITEM_DETAILS;
-  const scoreOptions = currentTest === 'BBS' ? BBS_SCORE_OPTIONS : FGA_SCORE_OPTIONS;
-  const scores = testPhase === 'primary' ? primaryScores : alternateScores;
-  const currentScore = scores[currentItemIndex];
-  const currentItemDetail = itemDetails[currentItemIndex + 1];
-
-  // Calculate Standard Error
+  // ── Standard Error tracking ────────────────────────────────────────────────
   const calculateStandardError = (scoreArray) => {
     const validScores = scoreArray.filter(s => s !== null && s >= 0);
     if (validScores.length < MIN_ITEMS_BEFORE_STOP) return null;
-    
     const mean = validScores.reduce((a, b) => a + b, 0) / validScores.length;
-    const variance = validScores.reduce((sum, score) => sum + Math.pow(score - mean, 2), 0) / validScores.length;
-    const se = Math.sqrt(variance / validScores.length);
-    
-    return se;
+    const variance = validScores.reduce((sum, s) => sum + Math.pow(s - mean, 2), 0) / validScores.length;
+    return Math.sqrt(variance / validScores.length);
   };
 
-  // Keep elapsedRef in sync for use inside effects without stale closures
   useEffect(() => {
     elapsedRef.current = elapsed;
   }, [elapsed]);
 
-  // Reset item start timestamp when navigating to a new item
   useEffect(() => {
     itemStartTimestampRef.current = Date.now();
   }, [currentItemIndex, testPhase]);
 
-  // Check stopping criteria and record threshold time
   useEffect(() => {
     if (testPhase === 'primary') {
       const se = calculateStandardError(primaryScores);
@@ -278,42 +301,30 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     }
   }, [primaryScores, alternateScores, testPhase]);
 
-  // Timer effect
+  // Timer
   useEffect(() => {
-    const timer = setInterval(() => {
-      setElapsed(Math.floor((new Date() - startTime) / 1000));
-    }, 1000);
+    const timer = setInterval(() => setElapsed(Math.floor((new Date() - startTime) / 1000)), 1000);
     return () => clearInterval(timer);
   }, [startTime]);
 
-  // Auto-save progress every 30 seconds
+  // Auto-save every 30 s
   useEffect(() => {
-    const autoSaveInterval = setInterval(() => {
-      autoSaveProgress();
-    }, 30000);
-    return () => clearInterval(autoSaveInterval);
-  }, [testPhase, currentItemIndex, primaryScores, alternateScores, elapsed]);
+    const interval = setInterval(autoSaveProgress, 30000);
+    return () => clearInterval(interval);
+  }, [testPhase, currentItemIndex, primaryScores, alternateScores, elapsed, primaryCatOrder, alternateCatOrder]);
 
   const autoSaveProgress = async () => {
     if (!assessmentData.firestoreId) return;
     const completedCount = [...primaryScores, ...alternateScores].filter(s => s !== null).length;
     if (completedCount === 0) return;
-
     const progressData = {
-      testPhase,
-      currentItemIndex,
-      primaryScores,
-      alternateScores,
-      elapsedTime: elapsed,
-      lastUpdated: new Date().toISOString()
+      testPhase, currentItemIndex, primaryScores, alternateScores,
+      primaryCatOrder, alternateCatOrder,
+      elapsedTime: elapsed, lastUpdated: new Date().toISOString()
     };
-
     if (JSON.stringify(progressData) !== JSON.stringify(lastSavedProgress)) {
       const result = await saveAssessmentProgress(assessmentData.firestoreId, progressData);
-      if (result.success) {
-        setLastSavedProgress(progressData);
-        console.log('Progress auto-saved to Firestore');
-      }
+      if (result.success) setLastSavedProgress(progressData);
     }
   };
 
@@ -321,21 +332,73 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     const hrs = Math.floor(seconds / 3600);
     const mins = Math.floor((seconds % 3600) / 60);
     const secs = seconds % 60;
-    if (hrs > 0) {
-      return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
-    }
+    if (hrs > 0) return `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
     return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
   };
 
+  // Record duration by item number (item-indexed)
   const recordItemDuration = (idx = currentItemIndex, phase = testPhase) => {
     const duration = Math.round((Date.now() - itemStartTimestampRef.current) / 1000);
+    const order = phase === 'primary' ? primaryCatOrder : alternateCatOrder;
+    const itemNum = order[idx];
+    if (!itemNum) return;
     if (phase === 'primary') {
-      setPrimaryItemDurations(prev => ({ ...prev, [idx]: duration }));
+      setPrimaryItemDurations(prev => ({ ...prev, [itemNum]: duration }));
     } else {
-      setAlternateItemDurations(prev => ({ ...prev, [idx]: duration }));
+      setAlternateItemDurations(prev => ({ ...prev, [itemNum]: duration }));
     }
   };
 
+  // ── CAT helpers ─────────────────────────────────────────────────────────────
+
+  // Compute SE synchronously from a fresh score array (avoids stale state)
+  const computeSE = (scoreArray) => {
+    const validScores = scoreArray.filter(s => s !== null && s >= 0);
+    if (validScores.length < MIN_ITEMS_BEFORE_STOP) return null;
+    const mean = validScores.reduce((a, b) => a + b, 0) / validScores.length;
+    const variance = validScores.reduce((s, v) => s + Math.pow(v - mean, 2), 0) / validScores.length;
+    return Math.sqrt(variance / validScores.length);
+  };
+
+  // Append next adaptive item and advance to it; or end the phase
+  const advanceCAT = (newScores, currentCatOrder, setCatOrder, phase) => {
+    const testType = phase === 'primary' ? assessmentData.currentTest : assessmentData.alternateTest;
+    const difficulties = getDifficulties(testType);
+    const maxScore = getMaxScore(testType);
+
+    const se = computeSE(newScores);
+    const stoppingNow = se !== null && se <= STANDARD_ERROR_THRESHOLD;
+    const allAdministered = currentCatOrder.length >= items.length;
+
+    if (stoppingNow || allAdministered) {
+      // CAT stopping criterion met — end this phase
+      setTimeout(() => {
+        if (phase === 'primary') setShowTransitionModal(true);
+        else completeAssessment();
+      }, 400);
+    } else {
+      // Select next item adaptively
+      const theta = estimateTheta(currentCatOrder, newScores, difficulties, maxScore);
+      const nextItem = selectNextCATItem(theta, currentCatOrder, difficulties);
+
+      if (nextItem === null) {
+        // All items exhausted
+        setTimeout(() => {
+          if (phase === 'primary') setShowTransitionModal(true);
+          else completeAssessment();
+        }, 400);
+      } else {
+        setCatOrder(prev => [...prev, nextItem]);
+        setTimeout(() => {
+          setCurrentItemIndex(prev => prev + 1);
+          setShowInstruction(false);
+          setShowNotAdminOptions(false);
+        }, 300);
+      }
+    }
+  };
+
+  // ── Score selection ─────────────────────────────────────────────────────────
   const handleScoreSelect = async (score) => {
     recordItemDuration();
 
@@ -344,7 +407,7 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
         participantId: assessmentData.participantId,
         testType: currentTest,
         testPhase,
-        itemNumber: currentItemIndex + 1,
+        itemNumber: currentItemNum,
         score,
         timeSpent: elapsed
       });
@@ -352,25 +415,27 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
       console.log('Analytics tracking failed:', error);
     }
 
-    if (testPhase === 'primary') {
-      const newScores = [...primaryScores];
-      newScores[currentItemIndex] = score;
-      setPrimaryScores(newScores);
-    } else {
-      const newScores = [...alternateScores];
-      newScores[currentItemIndex] = score;
-      setAlternateScores(newScores);
-    }
+    // Store score at item-indexed position
+    const newScores = [...scores];
+    newScores[currentItemNum - 1] = score;
 
-    setTimeout(() => {
-      handleNext(true);
-    }, 300);
+    if (testPhase === 'primary') {
+      setPrimaryScores(newScores);
+      advanceCAT(newScores, primaryCatOrder, setPrimaryCatOrder, 'primary');
+    } else {
+      setAlternateScores(newScores);
+      advanceCAT(newScores, alternateCatOrder, setAlternateCatOrder, 'alternate');
+    }
   };
 
+  // ── Start alternate test ────────────────────────────────────────────────────
   const startAlternateTest = () => {
     setShowTransitionModal(false);
     setTestPhase('alternate');
     setCurrentItemIndex(0);
+    // Initialise alternate CAT order with the first adaptive item
+    const firstItem = selectFirstCATItem(getDifficulties(assessmentData.alternateTest));
+    setAlternateCatOrder([firstItem]);
     setShowInstruction(false);
     setShowNotAdminOptions(false);
     setStoppingCriteriaMet(false);
@@ -383,25 +448,24 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     }
   };
 
-  const handleNext = (autoAdvance = false) => {
-    if (!autoAdvance && currentScore === null) {
+  // ── Manual Next button ──────────────────────────────────────────────────────
+  const handleNext = () => {
+    if (currentScore === null) {
       Alert.alert('No Score Selected', 'Please select a score or skip this item to continue.');
       return;
     }
-
-    if (currentItemIndex < items.length - 1) {
+    // If stopping criteria already met or no more adaptive items, end the phase
+    if (stoppingCriteriaMet || catOrder.length <= currentItemIndex + 1) {
+      if (testPhase === 'primary') setShowTransitionModal(true);
+      else completeAssessment();
+    } else {
       setCurrentItemIndex(currentItemIndex + 1);
       setShowInstruction(false);
       setShowNotAdminOptions(false);
-    } else {
-      if (testPhase === 'primary') {
-        setShowTransitionModal(true);
-      } else {
-        completeAssessment();
-      }
     }
   };
 
+  // ── Skip (no score) ─────────────────────────────────────────────────────────
   const handleSkip = () => {
     showConfirm(
       'Skip Item',
@@ -411,21 +475,31 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
       () => {
         hideConfirm();
         recordItemDuration();
-        if (currentItemIndex < items.length - 1) {
+
+        const testType = testPhase === 'primary' ? assessmentData.currentTest : assessmentData.alternateTest;
+        const difficulties = getDifficulties(testType);
+        const maxScore = getMaxScore(testType);
+        const setCatOrder = testPhase === 'primary' ? setPrimaryCatOrder : setAlternateCatOrder;
+
+        // Compute theta from previously scored items (current item has no score)
+        const scoredSoFar = catOrder.slice(0, currentItemIndex);
+        const theta = estimateTheta(scoredSoFar, scores, difficulties, maxScore);
+        const nextItem = selectNextCATItem(theta, catOrder, difficulties);
+
+        if (nextItem !== null && catOrder.length < items.length) {
+          setCatOrder(prev => [...prev, nextItem]);
           setCurrentItemIndex(currentItemIndex + 1);
           setShowInstruction(false);
           setShowNotAdminOptions(false);
         } else {
-          if (testPhase === 'primary') {
-            setShowTransitionModal(true);
-          } else {
-            completeAssessment();
-          }
+          if (testPhase === 'primary') setShowTransitionModal(true);
+          else completeAssessment();
         }
       }
     );
   };
 
+  // ── Back ────────────────────────────────────────────────────────────────────
   const handleBack = () => {
     if (currentItemIndex > 0) {
       setCurrentItemIndex(currentItemIndex - 1);
@@ -440,7 +514,7 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
         () => {
           hideConfirm();
           setTestPhase('primary');
-          setCurrentItemIndex(assessmentData.currentTest === 'BBS' ? 13 : 9);
+          setCurrentItemIndex(primaryCatOrder.length - 1);
           setShowInstruction(false);
           setShowNotAdminOptions(false);
         }
@@ -448,9 +522,8 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     }
   };
 
-  const handleNotAdminReasonSelect = (reason) => {
-    setNotAdministeredReason(reason);
-  };
+  // ── Not Administered ────────────────────────────────────────────────────────
+  const handleNotAdminReasonSelect = (reason) => setNotAdministeredReason(reason);
 
   const markNotAdministered = () => {
     if (!notAdministeredReason) {
@@ -458,28 +531,38 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
       return;
     }
 
-    if (testPhase === 'primary') {
-      const newScores = [...primaryScores];
-      newScores[currentItemIndex] = -1;
-      setPrimaryScores(newScores);
-    } else {
-      const newScores = [...alternateScores];
-      newScores[currentItemIndex] = -1;
-      setAlternateScores(newScores);
-    }
+    const testType = testPhase === 'primary' ? assessmentData.currentTest : assessmentData.alternateTest;
+    const difficulties = getDifficulties(testType);
+    const maxScore = getMaxScore(testType);
+    const setCatOrder = testPhase === 'primary' ? setPrimaryCatOrder : setAlternateCatOrder;
+
+    // Record -1 score at item-indexed position
+    const newScores = [...scores];
+    newScores[currentItemNum - 1] = -1;
+    if (testPhase === 'primary') setPrimaryScores(newScores);
+    else setAlternateScores(newScores);
 
     recordItemDuration();
     setNotAdministeredReason('');
     setShowNotAdminOptions(false);
 
+    // estimateTheta ignores -1 entries; select next item based on valid scores only
+    const theta = estimateTheta(catOrder, newScores, difficulties, maxScore);
+    const nextItem = selectNextCATItem(theta, catOrder, difficulties);
+
     setTimeout(() => {
-      if (currentItemIndex < items.length - 1) {
-        setCurrentItemIndex(currentItemIndex + 1);
+      if (nextItem !== null && catOrder.length < items.length) {
+        setCatOrder(prev => [...prev, nextItem]);
+        setCurrentItemIndex(prev => prev + 1);
         setShowInstruction(false);
+      } else {
+        if (testPhase === 'primary') setShowTransitionModal(true);
+        else completeAssessment();
       }
     }, 300);
   };
 
+  // ── Complete assessment ──────────────────────────────────────────────────────
   const completeAssessment = () => {
     const primaryRaw = primaryScores.filter(s => s !== null && s >= 0).reduce((a, b) => a + b, 0);
     const alternateRaw = alternateScores.filter(s => s !== null && s >= 0).reduce((a, b) => a + b, 0);
@@ -487,19 +570,16 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     const primaryRasch = primaryRaw * 1.2;
     const alternateRasch = alternateRaw * 1.15;
 
-    const primaryRisk = assessmentData.currentTest === 'BBS' 
+    const primaryRisk = assessmentData.currentTest === 'BBS'
       ? (primaryRaw >= 50 ? 'Low' : primaryRaw >= 40 ? 'Moderate' : 'High')
       : (primaryRaw >= 22 ? 'Low' : primaryRaw >= 15 ? 'Moderate' : 'High');
-    
+
     const alternateRisk = assessmentData.alternateTest === 'BBS'
       ? (alternateRaw >= 50 ? 'Low' : alternateRaw >= 40 ? 'Moderate' : 'High')
       : (alternateRaw >= 22 ? 'Low' : alternateRaw >= 15 ? 'Moderate' : 'High');
 
-    // Delete saved session if this was a resumed session
     if (isResumedSession && assessmentData.sessionId) {
-      StorageService.deleteSavedSession(assessmentData.sessionId).then(() => {
-        console.log('Saved session deleted after completion');
-      });
+      StorageService.deleteSavedSession(assessmentData.sessionId).catch(() => {});
     }
 
     onComplete({
@@ -512,6 +592,8 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
       totalTime: elapsed,
       primaryScores,
       alternateScores,
+      primaryCatOrder,
+      alternateCatOrder,
       primaryItemDurations,
       alternateItemDurations,
       primaryThresholdTimeSec,
@@ -521,6 +603,7 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     });
   };
 
+  // ── Save & Exit ─────────────────────────────────────────────────────────────
   const handleSaveAndExit = () => {
     showConfirm(
       'Save & Exit',
@@ -535,6 +618,8 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
           currentItemIndex,
           primaryScores,
           alternateScores,
+          primaryCatOrder,
+          alternateCatOrder,
           elapsedTime: elapsed,
           saveTime: new Date().toISOString(),
         };
@@ -544,7 +629,9 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
 
         if (assessmentData.firestoreId) {
           const progressData = {
-            testPhase, currentItemIndex, primaryScores, alternateScores,
+            testPhase, currentItemIndex,
+            primaryScores, alternateScores,
+            primaryCatOrder, alternateCatOrder,
             elapsedTime: elapsed, lastUpdated: new Date().toISOString(),
           };
           await saveAssessmentProgress(assessmentData.firestoreId, progressData);
@@ -562,6 +649,7 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     );
   };
 
+  // ── Stop & Discard ──────────────────────────────────────────────────────────
   const handleStop = () => {
     showConfirm(
       'Stop Assessment',
@@ -581,8 +669,10 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
     );
   };
 
-  const progress = ((currentItemIndex + 1) / items.length) * 100;
+  // ── Derived display values ──────────────────────────────────────────────────
+  const administeredInPhase = catOrder.length; // items selected for this phase so far
   const completedCount = scores.filter(s => s !== null).length;
+  const progress = (currentItemIndex / Math.max(administeredInPhase, 1)) * 100;
   const progressBarColor = stoppingCriteriaMet ? '#4caf50' : '#ff9800';
 
   return (
@@ -616,24 +706,24 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
           <Card.Content>
             <View style={styles.progressHeader}>
               <Text style={styles.progressTitle}>
-                Item {currentItemIndex + 1} of {items.length}
+                CAT Item {currentItemIndex + 1}
               </Text>
               <Text style={[styles.progressPercentage, { color: progressBarColor }]}>
-                {Math.round(progress)}%
+                Item #{currentItemNum}
               </Text>
             </View>
             <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { 
-                width: `${progress}%`, 
-                backgroundColor: progressBarColor 
+              <View style={[styles.progressFill, {
+                width: `${Math.min(100, progress)}%`,
+                backgroundColor: progressBarColor
               }]} />
             </View>
             <View style={styles.progressFooter}>
               <Text style={styles.completedText}>
-                {completedCount} items completed in this test
+                {completedCount} item{completedCount !== 1 ? 's' : ''} scored
               </Text>
             </View>
-            
+
             {/* Stopping Criteria Indicator */}
             {stoppingCriteriaMet && (
               <View style={styles.stoppingCriteriaCard}>
@@ -659,12 +749,12 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
           <Card.Content>
             <View style={styles.itemHeader}>
               <View style={styles.itemNumberBadge}>
-                <Text style={styles.itemNumberText}>#{currentItemIndex + 1}</Text>
+                <Text style={styles.itemNumberText}>#{currentItemNum}</Text>
               </View>
-              <Text style={styles.itemTitle}>{items[currentItemIndex]}</Text>
+              <Text style={styles.itemTitle}>{items[currentItemNum - 1]}</Text>
             </View>
 
-            {currentItemDetail && currentItemDetail.instruction && (
+            {currentItemDetail?.instruction && (
               <View style={styles.instructionSection}>
                 <TouchableOpacity
                   style={styles.instructionToggle}
@@ -771,7 +861,7 @@ export default function AssessmentRunning({ assessmentData, onComplete, onCancel
               <View style={styles.summaryRow}>
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryValue}>{completedCount}</Text>
-                  <Text style={styles.summaryLabel}>Completed</Text>
+                  <Text style={styles.summaryLabel}>Scored</Text>
                 </View>
                 <View style={styles.summaryItem}>
                   <Text style={styles.summaryValue}>
@@ -884,11 +974,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     gap: 8,
   },
-  resumedText: {
-    color: '#2e7d32',
-    fontWeight: 'bold',
-    fontSize: 14,
-  },
+  resumedText: { color: '#2e7d32', fontWeight: 'bold', fontSize: 14 },
   timerContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   timerText: { color: '#fff', fontSize: 24, fontWeight: 'bold', fontVariant: ['tabular-nums'] },
   testBadge: { backgroundColor: 'rgba(255, 255, 255, 0.2)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
@@ -1002,27 +1088,8 @@ const styles = StyleSheet.create({
       web: { boxShadow: '0 8px 32px rgba(0,0,0,0.18)' },
     }),
   },
-  modalTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#2e7d32',
-    textAlign: 'center',
-    marginTop: 4,
-  },
-  modalMessage: {
-    fontSize: 15,
-    color: '#555',
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  modalButton: {
-    marginTop: 8,
-    backgroundColor: '#2c5aa0',
-    width: '100%',
-    borderRadius: 10,
-  },
-  modalButtonLabel: {
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
+  modalTitle: { fontSize: 22, fontWeight: 'bold', color: '#2e7d32', textAlign: 'center', marginTop: 4 },
+  modalMessage: { fontSize: 15, color: '#555', textAlign: 'center', lineHeight: 22 },
+  modalButton: { marginTop: 8, backgroundColor: '#2c5aa0', width: '100%', borderRadius: 10 },
+  modalButtonLabel: { fontSize: 16, fontWeight: 'bold' },
 });
